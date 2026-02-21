@@ -9,22 +9,41 @@ st.set_page_config(page_title="CA Practice Manager - Udaipur", layout="wide")
 if not os.path.exists("saved_clients"):
     os.makedirs("saved_clients")
 
-# 2. COMPREHENSIVE INCOME TAX DEPRECIATION RATES [cite: 2, 7, 15, 18, 47]
-# These rates are mapped directly from your provided Income Tax Chart
-IT_DEP_RATES = {
-    "Building - Residential (Non-Hotel)": 0.05,
-    "Building - General (Office/Factory)": 0.10,
-    "Building - Temporary / Wooden Structures": 0.40,
-    "Furniture and Fittings (including electrical)": 0.10,
-    "Plant & Machinery (General)": 0.15,
-    "Motor Cars (General - 15%)": 0.15,
-    "Motor Cars (Commercial - 30%)": 0.30,
-    "Computers including software": 0.40,
-    "Books (Annual publications/Lending libraries)": 0.40,
-    "Air/Water Pollution Control Equipment": 0.40,
-    "Life Saving Medical Equipment": 0.40,
-    "Intangible Assets (Patents/Copyrights/Trademarks)": 0.25,
-    "Ships / Ocean-going Vessels": 0.20
+# 2. COMPREHENSIVE INCOME TAX DEPRECIATION RATES (Finance Act 2025)
+# This includes the expanded list from the CA Referencer
+IT_BLOCKS = {
+    "Building - Residential (5%)": 0.05,
+    "Building - General Office/Factory/Hotel (10%)": 0.10,
+    "Building - Water Treatment System (40%)": 0.40,
+    "Building - Purely Temporary/Wooden (40%)": 0.40,
+    "Furniture and Fittings including electrical (10%)": 0.10,
+    "Plant & Machinery - General (15%)": 0.15,
+    "Motor Cars - Non-Commercial (15%)": 0.15,
+    "Motor Cars - Commercial/Taxis/Hire (30%)": 0.30,
+    "Motor Buses/Lorries/Taxis - Hire (45% - Specified Period)": 0.45,
+    "Aeroplanes / Aero Engines (40%)": 0.40,
+    "Moulds - Rubber/Plastic factories (30%)": 0.30,
+    "Air Pollution Control Equipment (40%)": 0.40,
+    "Water Pollution Control Equipment (40%)": 0.40,
+    "Solid Waste Control Equipment (40%)": 0.40,
+    "Plant - Semiconductor Industry (30%)": 0.30,
+    "Life Saving Medical Equipment (40%)": 0.40,
+    "Computers including software (40%)": 0.40,
+    "Books - Annual Publications (40%)": 0.40,
+    "Books - Non-Annual (Professional) (40%)": 0.40,
+    "Books - Lending Libraries (40%)": 0.40,
+    "Energy Saving Devices - Furnaces/Boilers (40%)": 0.40,
+    "Energy Saving Devices - Instrumentation (40%)": 0.40,
+    "Energy Saving Devices - Waste Heat Recovery (40%)": 0.40,
+    "Renewable Energy - Solar Devices (40%)": 0.40,
+    "Renewable Energy - Wind Mills (post-2014) (40%)": 0.40,
+    "Gas Cylinders including valves (40%)": 0.40,
+    "Glass Manufacturing - Direct Fire Furnaces (40%)": 0.40,
+    "Mineral Oil Concerns - Field Operations (Above Ground) (40%)": 0.40,
+    "Mineral Oil Concerns - Field Operations (Below Ground) (40%)": 0.40,
+    "Ships - Ocean-going / Tugs / Barges (20%)": 0.20,
+    "Vessels - Inland Waters (20%)": 0.20,
+    "Intangible Assets - Patents/Copyrights/Know-how (25%)": 0.25
 }
 
 # 3. SIDEBAR: CLIENT DASHBOARD
@@ -66,8 +85,8 @@ def get_bs_template():
 
 def get_dep_template():
     return pd.DataFrame({
-        "Asset Name": ["Office Computers", "Office Furniture", "Office Building"],
-        "IT Block Type": ["Computers including software", "Furniture and Fittings (including electrical)", "Building - General (Office/Factory)"],
+        "Asset Name": ["Furniture", "Laptop", "Office Building"],
+        "IT Block Type": ["Furniture and Fittings including electrical (10%)", "Computers including software (40%)", "Building - General Office/Factory/Hotel (10%)"],
         "Opening WDV": [0.0] * 3,
         "Additions (>= 180 Days)": [0.0] * 3,
         "Additions (< 180 Days)": [0.0] * 3,
@@ -87,8 +106,7 @@ with tab_entry:
         st.subheader("Current Assets & Liabilities Input")
         bs_ed = st.data_editor(get_bs_template(), key="bs_key", num_rows="dynamic", use_container_width=True)
 
-    st.subheader("🛠️ Fixed Asset Schedule & Depreciation Chart (Income Tax Act)")
-    # Dropdown for IT Block Type selection within the editor
+    st.subheader("🛠️ Fixed Asset Schedule & Depreciation Chart (Finance Act 2025)")
     dep_ed = st.data_editor(
         get_dep_template(), 
         key="dep_key", 
@@ -97,8 +115,8 @@ with tab_entry:
         column_config={
             "IT Block Type": st.column_config.SelectboxColumn(
                 "IT Block Type",
-                help="Select the category as per Income Tax Act",
-                options=list(IT_DEP_RATES.keys()),
+                help="Select the block as per Finance Act 2025",
+                options=list(IT_BLOCKS.keys()),
                 required=True,
             )
         }
@@ -106,7 +124,6 @@ with tab_entry:
 
     if st.button("💾 SAVE ALL FIRM DATA"):
         file_path = f"saved_clients/{company_name.replace(' ', '_')}_{selected_fy}.csv"
-        # Save all data into a structured CSV
         save_df = pd.concat([pl_ed, bs_ed, dep_ed.assign(Group="FA_Schedule")], ignore_index=True)
         save_df.to_csv(file_path, index=False)
         st.success(f"Successfully saved {company_name} for {selected_fy}!")
@@ -114,18 +131,16 @@ with tab_entry:
 # 6. REPORT GENERATION
 with tab_report:
     if st.button("📊 GENERATE FINAL P&L AND BALANCE SHEET"):
-        # --- Depreciation Logic  ---
         dep_results = []
         tot_dep_amt = 0
         for _, row in dep_ed.iterrows():
-            rate = IT_DEP_RATES.get(row['IT Block Type'], 0.15)
-            # Rule: 50% dep if used < 180 days 
-            # (Opening + Add >= 180 - Deletions) * Full Rate + (Add < 180) * Half Rate
+            rate = IT_BLOCKS.get(row['IT Block Type'], 0.15)
+            # Rule: 50% dep if used < 180 days
             opening_base = (row['Opening WDV'] + row['Additions (>= 180 Days)'] - row['Deletions'])
-            d1 = opening_base * rate
-            d2 = row['Additions (< 180 Days)'] * (rate * 0.5)
+            d_full = opening_base * rate
+            d_half = row['Additions (< 180 Days)'] * (rate * 0.5)
             
-            cur_dep = d1 + d2
+            cur_dep = d_full + d_half
             tot_dep_amt += cur_dep
             
             total_cost = (row['Opening WDV'] + row['Additions (>= 180 Days)'] + row['Additions (< 180 Days)'] - row['Deletions'])
@@ -143,28 +158,19 @@ with tab_report:
         
         dep_summary_df = pd.DataFrame(dep_results)
 
-        # --- P&L Logic ---
-        # Note: Depreciation is automatically added to expenses
-        sales = pl_ed[pl_ed['Particulars']=="Sales"]['Amount'].sum()
-        cl_stock = pl_ed[pl_ed['Particulars']=="Closing Stock"]['Amount'].sum()
-        op_stock = pl_ed[pl_ed['Particulars']=="Opening Stock"]['Amount'].sum()
-        pur = pl_ed[pl_ed['Particulars']=="Purchase"]['Amount'].sum()
-        gp = (sales + cl_stock) - (op_stock + pur)
-        
-        ind_inc = pl_ed[pl_ed['Group']=="Income"]['Amount'].sum()
-        ind_exp = pl_ed[pl_ed['Group']=="Expense"]['Amount'].sum() + tot_dep_amt
-        np = (gp + ind_inc) - ind_exp
+        # Calculations
+        def sum_p(df, name): return df[df['Particulars']==name]['Amount'].sum()
+        gp = (sum_p(pl_ed, "Sales") + sum_p(pl_ed, "Closing Stock")) - (sum_p(pl_ed, "Opening Stock") + sum_p(pl_ed, "Purchase"))
+        # NP = Income - (Expenses + Depreciation)
+        np = (gp + pl_ed[pl_ed['Group']=="Income"]['Amount'].sum()) - (pl_ed[pl_ed['Group']=="Expense"]['Amount'].sum() + tot_dep_amt)
 
-        # --- Display Reports ---
-        st.markdown(f'<div class="report-header">{company_name.upper()}</div>', unsafe_allow_html=True)
-        st.write(f"**Gross Profit:** ₹{gp:,.2f} | **Net Profit:** ₹{np:,.2f}")
+        st.markdown(f'<div style="background-color:#5B9BD5;color:white;text-align:center;padding:10px;font-weight:bold;">{company_name.upper()}</div>', unsafe_allow_html=True)
         
-        st.subheader("Fixed Asset & Depreciation Schedule (As per Income Tax Act)")
+        st.subheader("Fixed Asset & Depreciation Schedule (Finance Act 2025)")
         st.dataframe(dep_summary_df, hide_index=True)
 
-        st.subheader("Balance Sheet (Fixed Assets Section)")
-        # Showing Opening, Less Dep, and Closing separately as requested
-        st.table(dep_summary_df[["Asset Name", "Opening WDV", "Depreciation", "Closing WDV"]])
+        st.subheader("Balance Sheet Summary")
+        st.table(dep_summary_df[["Asset Name", "Rate (%)", "Opening WDV", "Depreciation", "Closing WDV"]])
 
     # EXCEL EXPORT
     output = io.BytesIO()
@@ -174,4 +180,4 @@ with tab_report:
         if 'dep_summary_df' in locals():
             dep_summary_df.to_excel(writer, sheet_name='Depreciation_Chart')
     
-    st.download_button("📥 Export Professional Excel Report", data=output.getvalue(), file_name=f"{company_name}_Full_Report.xlsx")
+    st.download_button("📥 Export Report to Excel", data=output.getvalue(), file_name=f"{company_name}_Report.xlsx")
