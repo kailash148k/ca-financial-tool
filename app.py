@@ -21,11 +21,10 @@ DEP_RATES = {
     "Intangible Assets": 0.25
 }
 
-# 3. SIDEBAR: CLIENT LIST DASHBOARD
+# 3. SIDEBAR: CLIENT DASHBOARD
 st.sidebar.header("📂 Client List Dashboard")
 all_files = os.listdir("saved_clients")
 if all_files:
-    # Extract unique firm names by removing the FY suffix and .csv
     unique_firms = sorted(list(set([f.split('_20')[0].replace('_', ' ') for f in all_files])))
     st.sidebar.write(f"Total Firms Managed: **{len(unique_firms)}**")
     for firm in unique_firms:
@@ -39,7 +38,7 @@ company_name = st.sidebar.text_input("Company Name", "M/s Rudra Earthmovers")
 address = st.sidebar.text_area("Address", "Udaipur, Rajasthan")
 selected_fy = st.sidebar.selectbox("Financial Year", ["2021-22", "2022-23", "2023-24", "2024-25", "2025-26"])
 
-if st.sidebar.button("♻️ Reset for New Firm"):
+if st.sidebar.button("♻️ Reset & New Firm"):
     st.session_state.clear()
     st.rerun()
 
@@ -79,15 +78,14 @@ with tab_entry:
         st.subheader("Profit & Loss Account")
         pl_ed = st.data_editor(get_pl_template(), key="pl_key", num_rows="dynamic", use_container_width=True)
     with col_bs:
-        st.subheader("Balance Sheet (Liabilities & Current Assets)")
+        st.subheader("Balance Sheet (Liabs & Assets)")
         bs_ed = st.data_editor(get_bs_template(), key="bs_key", num_rows="dynamic", use_container_width=True)
 
-    st.subheader("🛠️ Fixed Asset & Depreciation Chart (Income Tax Act)")
+    st.subheader("🛠️ Fixed Asset & Depreciation Chart")
     dep_ed = st.data_editor(get_dep_template(), key="dep_key", num_rows="dynamic", use_container_width=True)
 
     if st.button("💾 SAVE ALL FIRM DATA"):
         file_path = f"saved_clients/{company_name.replace(' ', '_')}_{selected_fy}.csv"
-        # Combine all for saving
         save_df = pd.concat([pl_ed, bs_ed, dep_ed.assign(Group="FA_Schedule")], ignore_index=True)
         save_df.to_csv(file_path, index=False)
         st.success(f"Successfully saved {company_name} for {selected_fy}!")
@@ -100,41 +98,29 @@ with tab_report:
         tot_dep = 0
         for _, row in dep_ed.iterrows():
             rate = DEP_RATES.get(row['Type'], 0.15)
-            # IT Rule: 50% dep if used < 180 days
             d1 = (row['Opening WDV'] + row['Additions > 180 Days'] - row['Deletions']) * rate
             d2 = row['Additions < 180 Days'] * (rate / 2)
             cur_dep = d1 + d2
             tot_dep += cur_dep
             dep_results.append({"Asset": row['Asset Name'], "Opening": row['Opening WDV'], "Depreciation": cur_dep, "Closing WDV": (row['Opening WDV'] + row['Additions > 180 Days'] + row['Additions < 180 Days'] - row['Deletions']) - cur_dep})
         
-        # P&L Logic
-        sales = pl_ed[pl_ed['Particulars']=="Sales"]['Amount'].sum()
-        pur = pl_ed[pl_ed['Particulars']=="Purchase"]['Amount'].sum()
-        cl_stock = pl_ed[pl_ed['Particulars']=="Closing Stock"]['Amount'].sum()
-        op_stock = pl_ed[pl_ed['Particulars']=="Opening Stock"]['Amount'].sum()
-        gp = (sales + cl_stock) - (op_stock + pur)
-        
-        st.markdown(f'<div class="report-header">{company_name.upper()}</div>', unsafe_allow_html=True)
-        st.write(f"**Gross Profit:** ₹{gp:,.2f} | **Total Depreciation:** ₹{tot_dep:,.2f}")
+        st.subheader("Depreciation Schedule (IT Act)")
         st.table(pd.DataFrame(dep_results))
+        st.success(f"Total Depreciation to P&L: ₹{tot_dep:,.2f}")
 
-    st.divider()
-    # Avg Cash Profit Logic
-    years = st.multiselect("Select Years for Average Cash Profit", ["2021-22", "2022-23", "2023-24", "2024-25", "2025-26"])
-    if st.button("🧮 Calculate Avg. Cash Profit"):
-        cp_vals = []
-        for y in years:
-            p = f"saved_clients/{company_name.replace(' ', '_')}_{y}.csv"
-            if os.path.exists(p):
-                # simplified net profit + add-back tickmarks
-                d = pd.read_csv(p)
-                ab = d[d['Add Back']==True]['Amount'].sum()
-                cp_vals.append(ab) # Replace with full NP logic as needed
-        if cp_vals: st.metric("Average Cash Profit", f"₹{sum(cp_vals)/len(cp_vals):,.2f}")
-
-    # EXCEL EXPORT
+    # EXCEL EXPORT [Requires xlsxwriter in requirements.txt]
     output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        pl_ed.to_excel(writer, sheet_name='P_and_L')
-        bs_ed.to_excel(writer, sheet_name='Balance_Sheet')
-    st.download_button("📥 Export to Excel", data=output, file_name=f"{company_name}_Full_Report.xlsx")
+    try:
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            pl_ed.to_excel(writer, sheet_name='P_and_L')
+            bs_ed.to_excel(writer, sheet_name='Balance_Sheet')
+            pd.DataFrame(dep_results if 'dep_results' in locals() else []).to_excel(writer, sheet_name='Dep_Chart')
+        
+        st.download_button(
+            label="📥 Export Full Report to Excel",
+            data=output.getvalue(),
+            file_name=f"{company_name}_{selected_fy}_Report.xlsx",
+            mime="application/vnd.ms-excel"
+        )
+    except Exception as e:
+        st.warning("Generate the report first to enable the Excel download.")
