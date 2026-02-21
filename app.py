@@ -9,38 +9,44 @@ st.set_page_config(page_title="CA Practice Manager - Final 2202", layout="wide")
 if not os.path.exists("saved_clients"):
     os.makedirs("saved_clients")
 
-# 2. COMPREHENSIVE INCOME TAX DEPRECIATION RATES (Finance Act 2025)
-# Full referencer for 50+ items
+# 2. COMPREHENSIVE LIBRARIES
+TRADING_PL_HEADS = [
+    "Opening Stock", "Purchases", "Purchases Returns", "Wages", "Carriage Inward", "Freight Inward",
+    "Factory Rent", "Factory Lighting", "Customs Duty", "Octroi Duty", "Import Duty", "Dock Charges",
+    "Manufacturing Expenses", "Fuel and Power", "Royalty on Production", "Packing Expenses", "Lorry Hire",
+    "Sales", "Sales Returns", "Closing Stock", "Salaries (Office)", "Office Rent", "Printing and Stationery",
+    "Postage", "Telephone Expenses", "Legal Charges", "Audit Fees", "Bank Charges", "Repairs and Maintenance",
+    "Advertising", "Carriage Outward", "Bad Debts", "Interest on Loans", "Interest on Capital", "Depreciation",
+    "Charity and Donations", "Rent Received", "Interest Received", "Commission Received", "Discount Received"
+]
+
+BALANCE_SHEET_HEADS = [
+    "Proprietor's Capital", "Partner's Capital", "Share Capital", "Equity Share Capital", "Preference Share Capital",
+    "Revaluation Reserve", "Capital Reserve", "Statutory Reserve", "General Reserve", "Securities Premium",
+    "Surplus (P&L Balance)", "Foreign Currency Loans", "Rupee Loans from Banks", "Rupee Loans from Others",
+    "Term Loans", "Working Capital Loan (CC)", "Unsecured Loans from Banks", "Unsecured Loans from Others",
+    "Deferred Tax Liability", "Sundry Creditors", "Bills Payable", "Liability for Leased Assets",
+    "Interest Accrued and Due", "Interest Accrued but not Due", "Advances from Customers", "Statutory Dues",
+    "Provision for Income Tax", "Provision for Wealth Tax", "Provision for Gratuity", "Other Provisions",
+    "Fixed Assets: Gross Block", "Capital Work-in-Progress", "Long-term Investments", "Quoted Securities",
+    "Unquoted Securities", "Trade Investments", "Equity Shares (Investment)", "Debentures (Investment)",
+    "Inventories: Raw Materials", "Inventories: Stock-in-Process", "Inventories: Finished Goods",
+    "Inventories: Traded Goods", "Sundry Debtors", "Cash-in-Hand", "Balance with Banks", "Fixed Deposits",
+    "Other Current Assets", "Interest Accrued on Investments", "Advances Recoverable in Cash/Kind",
+    "Security Deposits", "Balance with Tax Authorities", "Deferred Tax Asset", "Prepaid Expenses",
+    "Miscellaneous Expenditure (not written off)"
+]
+
 IT_BLOCKS = {
     "Building - Residential (5%)": 0.05,
-    "Building - General Office/Factory/Hotel (10%)": 0.10,
-    "Building - Water Treatment System (40%)": 0.40,
-    "Building - Purely Temporary/Wooden (40%)": 0.40,
-    "Furniture and Fittings including electrical (10%)": 0.10,
+    "Building - General (10%)": 0.10,
+    "Furniture and Fittings (10%)": 0.10,
     "Plant & Machinery - General (15%)": 0.15,
-    "Motor Cars - Non-Commercial (15%)": 0.15,
-    "Motor Cars - Commercial/Taxis/Hire (30%)": 0.30,
-    "Motor Buses/Lorries/Taxis - Hire (45%)": 0.45,
-    "Aeroplanes / Aero Engines (40%)": 0.40,
-    "Moulds - Rubber/Plastic factories (30%)": 0.30,
-    "Air Pollution Control Equipment (40%)": 0.40,
-    "Water Pollution Control Equipment (40%)": 0.40,
-    "Solid Waste Control Equipment (40%)": 0.40,
-    "Plant - Semiconductor Industry (30%)": 0.30,
-    "Life Saving Medical Equipment (40%)": 0.40,
+    "Motor Cars - General (15%)": 0.15,
     "Computers including software (40%)": 0.40,
-    "Books - Annual Publications (40%)": 0.40,
-    "Books - Non-Annual (Professional) (40%)": 0.40,
-    "Books - Lending Libraries (40%)": 0.40,
-    "Energy Saving Devices - Boilers/Furnaces (40%)": 0.40,
-    "Renewable Energy - Solar Devices (40%)": 0.40,
-    "Renewable Energy - Wind Mills (40%)": 0.40,
-    "Gas Cylinders including valves (40%)": 0.40,
-    "Glass Manufacturing Furnaces (40%)": 0.40,
-    "Mineral Oil Concerns - Field Ops (40%)": 0.40,
-    "Ships - Ocean-going / Tugs / Barges (20%)": 0.20,
-    "Vessels - Inland Waters (20%)": 0.20,
-    "Intangible Assets - Patents/Know-how (25%)": 0.25
+    "Books - Professional (40%)": 0.40,
+    "Pollution Control Equipment (40%)": 0.40,
+    "Intangible Assets (25%)": 0.25
 }
 
 # 3. SIDEBAR: CLIENT DASHBOARD
@@ -55,7 +61,7 @@ else:
     st.sidebar.info("No saved clients.")
 
 st.sidebar.divider()
-st.sidebar.header("🏢 Current Firm Settings")
+st.sidebar.header("🏢 Firm Settings")
 company_name = st.sidebar.text_input("Company Name", "M/s Rudra Earthmovers")
 address = st.sidebar.text_area("Address", "Udaipur, Rajasthan")
 selected_fy = st.sidebar.selectbox("Financial Year", ["2023-24", "2024-25", "2025-26"])
@@ -64,87 +70,69 @@ if st.sidebar.button("♻️ Reset & New Company"):
     st.session_state.clear()
     st.rerun()
 
-# 4. TEMPLATES
-def get_pl_template():
-    return pd.DataFrame({
-        "Particulars": ["Sales", "Opening Stock", "Purchase", "Closing Stock", "Direct Expenses", "Interest Income", "Commission", "Salary", "Office Expenses"],
-        "Group": ["Trading", "Trading", "Trading", "Trading", "Trading", "Income", "Income", "Expense", "Expense"],
-        "Add Back": [False] * 9,
-        "Amount": [0.0] * 9
-    })
-
-def get_bs_template():
-    return pd.DataFrame({
-        "Particulars": ["Promoter Capital", "Bank Loan", "Sundry Creditors", "Duties & Taxes", "Sundry Debtors", "Cash-in-Hand", "Bank Accounts"],
-        "Group": ["Liability", "Liability", "Liability", "Liability", "Asset", "Asset", "Asset"],
-        "Amount": [0.0] * 7
-    })
-
-def get_dep_template():
-    return pd.DataFrame({
-        "Asset Name": ["Furniture", "Laptop"],
-        "IT Block Type": ["Furniture and Fittings including electrical (10%)", "Computers including software (40%)"],
-        "Opening WDV": [0.0] * 2,
-        "Additions (>= 180 Days)": [0.0] * 2,
-        "Additions (< 180 Days)": [0.0] * 2,
-        "Deletions": [0.0] * 2
-    })
-
-# 5. DATA ENTRY
+# 4. DATA ENTRY (SEARCHABLE)
 st.title(f"Financial Reporting: {company_name}")
-t_entry, t_report = st.tabs(["📝 Input Sheet", "📈 Final Reports"])
+t_input, t_report = st.tabs(["📝 Searchable Input", "📈 Final Reports"])
 
-with t_entry:
+with t_input:
+    st.info("Start typing in 'Particulars' to see the pre-filled list of 100+ items.")
     c1, c2 = st.columns(2)
+    
     with c1:
-        st.subheader("P&L Input")
-        pl_ed = st.data_editor(get_pl_template(), key="pl_v", num_rows="dynamic", use_container_width=True)
+        st.subheader("Profit & Loss Account")
+        pl_ed = st.data_editor(
+            pd.DataFrame({"Particulars": ["Sales"], "Amount": [0.0], "Add Back": [False]}),
+            key="pl_search", num_rows="dynamic", use_container_width=True,
+            column_config={"Particulars": st.column_config.SelectboxColumn("Account Head", options=TRADING_PL_HEADS, required=True)}
+        )
+
     with c2:
-        st.subheader("Balance Sheet Input")
-        bs_ed = st.data_editor(get_bs_template(), key="bs_v", num_rows="dynamic", use_container_width=True)
+        st.subheader("Balance Sheet")
+        bs_ed = st.data_editor(
+            pd.DataFrame({"Particulars": ["Sundry Debtors"], "Amount": [0.0]}),
+            key="bs_search", num_rows="dynamic", use_container_width=True,
+            column_config={"Particulars": st.column_config.SelectboxColumn("Account Head", options=BALANCE_SHEET_HEADS, required=True)}
+        )
 
     st.subheader("🛠️ Depreciation Chart (Finance Act 2025)")
-    dep_ed = st.data_editor(get_dep_template(), key="dep_v", num_rows="dynamic", use_container_width=True,
-                            column_config={"IT Block Type": st.column_config.SelectboxColumn("IT Block Type", options=list(IT_BLOCKS.keys()), required=True)})
+    dep_ed = st.data_editor(
+        pd.DataFrame({"Asset": ["Furniture"], "IT Block Type": ["Furniture and Fittings (10%)"], "Opening WDV": [0.0], "Additions (>= 180 Days)": [0.0], "Additions (< 180 Days)": [0.0], "Deletions": [0.0]}),
+        key="dep_search", num_rows="dynamic", use_container_width=True,
+        column_config={"IT Block Type": st.column_config.SelectboxColumn("IT Block", options=list(IT_BLOCKS.keys()), required=True)}
+    )
 
     if st.button("💾 SAVE FIRM DATA"):
         file_path = f"saved_clients/{company_name.replace(' ', '_')}_{selected_fy}.csv"
         save_df = pd.concat([pl_ed, bs_ed, dep_ed.assign(Group="FA_Schedule")], ignore_index=True)
         save_df.to_csv(file_path, index=False)
-        st.success(f"Saved {company_name} - {selected_fy}!")
+        st.success(f"Successfully saved {company_name} for {selected_fy}!")
 
-# 6. REPORTS
+# 5. REPORTS
 with t_report:
     if st.button("📊 GENERATE FINAL REPORTS"):
-        # Dep Logic
+        # Dep Calc
         res = []
         tot_d = 0
         for _, r in dep_ed.iterrows():
             rate = IT_BLOCKS.get(r['IT Block Type'], 0.15)
-            d_full = (r['Opening WDV'] + r['Additions (>= 180 Days)'] - r['Deletions']) * rate
-            d_half = r['Additions (< 180 Days)'] * (rate * 0.5)
-            cur = d_full + d_half
+            d_f = (r['Opening WDV'] + r['Additions (>= 180 Days)'] - r['Deletions']) * rate
+            d_h = r['Additions (< 180 Days)'] * (rate * 0.5)
+            cur = d_f + d_h
             tot_d += cur
-            res.append({"Asset": r['Asset Name'], "Rate (%)": f"{rate*100}%", "Opening": r['Opening WDV'], "Depreciation": cur, "Closing WDV": (r['Opening WDV'] + r['Additions (>= 180 Days)'] + r['Additions (< 180 Days)'] - r['Deletions']) - cur})
+            res.append({"Asset": r['Asset'], "Rate": f"{rate*100}%", "Opening": r['Opening WDV'], "Depreciation": cur, "Closing WDV": (r['Opening WDV'] + r['Additions (>= 180 Days)'] + r['Additions (< 180 Days)'] - r['Deletions']) - cur})
         
         dep_df = pd.DataFrame(res)
         
-        # P&L
-        def s_p(df, n): return df[df['Particulars']==n]['Amount'].sum()
-        gp = (s_p(pl_ed, "Sales") + s_p(pl_ed, "Closing Stock")) - (s_p(pl_ed, "Opening Stock") + s_p(pl_ed, "Purchase"))
-        np = (gp + pl_ed[pl_ed['Group']=="Income"]['Amount'].sum()) - (pl_ed[pl_ed['Group']=="Expense"]['Amount'].sum() + tot_d)
-
-        # Presentation
         st.markdown(f'<div style="background-color:#5B9BD5;color:white;text-align:center;padding:10px;font-weight:bold;font-size:24px;">{company_name.upper()}</div>', unsafe_allow_html=True)
-        st.write(f"**FY:** {selected_fy} | **GP:** ₹{gp:,.2f} | **NP:** ₹{np:,.2f}")
+        st.write(f"**FY:** {selected_fy} | **Address:** {address}")
         
-        st.subheader("Depreciation Schedule & Balance Sheet Breakdown")
-        st.table(dep_df[["Asset", "Rate (%)", "Opening", "Depreciation", "Closing WDV"]])
+        st.subheader("Fixed Asset & Depreciation Schedule")
+        st.table(dep_df)
 
     # EXCEL EXPORT
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         pl_ed.to_excel(writer, sheet_name='P_and_L')
         bs_ed.to_excel(writer, sheet_name='Balance_Sheet')
-        if 'dep_df' in locals(): dep_df.to_excel(writer, sheet_name='Dep_Schedule')
+        if 'dep_df' in locals(): dep_df.to_excel(writer, sheet_name='Depreciation_Chart')
     st.download_button("📥 Export Final 2202 Excel", data=output.getvalue(), file_name=f"{company_name}_Final_2202.xlsx")
